@@ -31,7 +31,7 @@ if input := st.chat_input():
 # Generate a new response if last message is not from assistant
 if st.session_state.messages[-1]["role"] != "assistant":
     with st.chat_message("assistant"):
-        with st.spinner("Getting your answer from mystery stuff.."):
+        with st.spinner("Getting your answer from uploaded documents"):
             response = generate_response(input) 
             result_text = response["result"]
             st.write(result_text) 
