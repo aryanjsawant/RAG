@@ -6,7 +6,12 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_core.prompts import PromptTemplate
 from langchain_classic.chains.retrieval_qa.base import RetrievalQA
+import os
 
+OLLAMA_BASE_URL = os.getenv(
+    "https://noncausatively-incoercible-sarai.ngrok-free.dev/",
+    "http://localhost:11434"  # fallback for local dev
+)
 
 class ChatBot:
     def __init__(self):
@@ -26,7 +31,8 @@ class ChatBot:
         # 2. Embeddings (Ollama)
         # -----------------------------
         embeddings = OllamaEmbeddings(
-            model="nomic-embed-text"  # REQUIRED for embeddings
+            model="nomic-embed-text",
+            base_url=OLLAMA_BASE_URL
         )
 
         vector_store = InMemoryVectorStore(embeddings)
@@ -39,7 +45,8 @@ class ChatBot:
         # -----------------------------
         llm = ChatOllama(
             model="llama3",
-            temperature=0.2
+            temperature=0.2,
+            base_url=OLLAMA_BASE_URL
         )
 
         # -----------------------------

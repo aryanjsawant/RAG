@@ -15,7 +15,7 @@ def generate_response(input):
 
 # Store LLM generated responses
 if "messages" not in st.session_state.keys():
-    st.session_state.messages = [{"role": "assistant", "content": "Hello! I'm TravelBot. How can I assist you with your travel plans today?"}]
+    st.session_state.messages = [{"role": "assistant", "content": "Hello! What do u want to learn today?"}]
 
 # Display chat messages
 for message in st.session_state.messages:
