@@ -1,0 +1,16 @@
+# Core LangChain
+langchain>=0.2.10
+langchain-core>=0.2.10
+langchain-community>=0.2.10
+langchain-text-splitters>=0.2.0
+langchain-ollama>=0.1.0
+langchain-classic>=0.0.4
+
+# Vector store (in-memory)
+numpy>=1.26.0
+
+# Document loading
+unstructured>=0.14.0
+
+# Optional but recommended
+pydantic>=2.7.0
