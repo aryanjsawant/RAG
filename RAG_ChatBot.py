@@ -9,7 +9,7 @@ from langchain_classic.chains.retrieval_qa.base import RetrievalQA
 import os
 
 OLLAMA_BASE_URL = os.getenv(
-    "https://noncausatively-incoercible-sarai.ngrok-free.dev/",
+    "OLLAMA_BASE_URL",
     "http://localhost:11434"  # fallback for local dev
 )
 
