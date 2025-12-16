@@ -6,7 +6,7 @@ import json
 bot = ChatBot()
     
 
-st.title('Eloectrical Department Assistant Bot')
+st.title('Electrical Department Assistant Bot')
 
 # Function for generating LLM response
 def generate_response(input):
