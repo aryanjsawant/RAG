@@ -1,16 +1,62 @@
-# Core LangChain
+# # Core LangChain
+# langchain>=0.2.10
+# langchain-core>=0.2.10
+# langchain-community>=0.2.10
+# langchain-text-splitters>=0.2.0
+# langchain-ollama>=0.1.0
+# langchain-classic>=0.0.4
+
+# # Vector store (in-memory)
+# numpy>=1.26.0
+
+# # Document loading
+# unstructured>=0.14.0
+
+# # Optional but recommended
+# pydantic>=2.7.0
+
+# pypdf
+# python-docx
+# unstructured
+# unstructured[local-inference]
+
+# chromadb>=0.4.0
+
+# -------------------------------
+# Streamlit
+# -------------------------------
+streamlit>=1.35.0
+
+# -------------------------------
+# LangChain Core
+# -------------------------------
 langchain>=0.2.10
 langchain-core>=0.2.10
 langchain-community>=0.2.10
 langchain-text-splitters>=0.2.0
-langchain-ollama>=0.1.0
 langchain-classic>=0.0.4
 
-# Vector store (in-memory)
+# -------------------------------
+# Ollama integration
+# -------------------------------
+langchain-ollama>=0.1.0
+ollama>=0.1.8
+
+# -------------------------------
+# Vector Database
+# -------------------------------
+# chromadb>=0.5.5
+# langchain-chroma>=0.1.2
+
+# -------------------------------
+# Document loaders
+# -------------------------------
+unstructured>=0.14.8
+python-docx>=1.1.0
+pypdf>=4.2.0
+
+# -------------------------------
+# Utilities
+# -------------------------------
 numpy>=1.26.0
-
-# Document loading
-unstructured>=0.14.0
-
-# Optional but recommended
 pydantic>=2.7.0

@@ -1,39 +1,62 @@
-from RAG_ChatBot import ChatBot
+# app.py
+
 import streamlit as st
-import json
+from RAG_ChatBot import ChatBot
+import shutil
+import os
 
+st.set_page_config(page_title="Electrical Dept Assistant")
 
+st.title("⚡ Electrical Department Assistant")
+
+# Sidebar controls
+with st.sidebar:
+    if st.button("🔄 Reindex New Documents"):
+        st.cache_resource.clear()
+        st.success("Reindexed successfully")
+
+    if st.button("🗑️ Reset Vector Database"):
+        if os.path.exists("./chroma_db"):
+            shutil.rmtree("./chroma_db")
+        st.cache_resource.clear()
+        st.warning("Vector database reset")
+
+# Initialize bot
 bot = ChatBot()
-    
 
-st.title('Eloectrical Department Assistant Bot')
+# Chat memory
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {"role": "assistant", "content": "Ask me about electrical standards."}
+    ]
 
-# Function for generating LLM response
-def generate_response(input):
-    result = bot.rag_chain.invoke(input)
-    return result
+# Display chat
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.write(msg["content"])
 
-# Store LLM generated responses
-if "messages" not in st.session_state.keys():
-    st.session_state.messages = [{"role": "assistant", "content": "Hello! What do u want to learn today?"}]
+# User input
+if user_input := st.chat_input():
+    st.session_state.messages.append({"role": "user", "content": user_input})
 
-# Display chat messages
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.write(message["content"])
-
-# User-provided prompt
-if input := st.chat_input():
-    st.session_state.messages.append({"role": "user", "content": input})
-    with st.chat_message("user"):
-        st.write(input)
-
-# Generate a new response if last message is not from assistant
-if st.session_state.messages[-1]["role"] != "assistant":
     with st.chat_message("assistant"):
-        with st.spinner("Getting your answer from uploaded documents"):
-            response = generate_response(input) 
-            result_text = response["result"]
-            st.write(result_text) 
-    message = {"role": "assistant", "content": response["result"]}
-    st.session_state.messages.append(message)
+        with st.spinner("Searching standards..."):
+            response = bot.chain.invoke(user_input)
+
+            answer = response["result"]
+            sources = response["source_documents"]
+
+            citations = set(
+                f"{d.metadata['source']}, page {d.metadata['page']}"
+                for d in sources
+            )
+
+            final_answer = answer
+            if citations:
+                final_answer += "\n\nSources:\n" + "\n".join(citations)
+
+            st.write(final_answer)
+
+    st.session_state.messages.append(
+        {"role": "assistant", "content": final_answer}
+    )
