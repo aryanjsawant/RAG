@@ -4,23 +4,25 @@ import os
 import hashlib
 import streamlit as st
 
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+
 from langchain_huggingface import (
     HuggingFaceEmbeddings,
-    HuggingFacePipeline
+    HuggingFacePipeline,
 )
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from langchain_core.prompts import PromptTemplate
-from langchain_classic.chains.retrieval_qa.base import RetrievalQA
-
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
-
 from langchain_community.document_loaders import (
     TextLoader,
     PyPDFLoader,
-    UnstructuredWordDocumentLoader
+    UnstructuredWordDocumentLoader,
 )
+
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
+
 
 # ================================
 # CONFIG
@@ -31,6 +33,7 @@ FAISS_INDEX_PATH = "./faiss_index"
 EMBEDDING_MODEL = "sentence-transformers/all-mpnet-base-v2"
 LLM_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
 
+
 # ================================
 # UTILS
 # ================================
@@ -39,6 +42,12 @@ def file_hash(path: str) -> str:
     with open(path, "rb") as f:
         h.update(f.read())
     return h.hexdigest()
+
+
+def format_docs(docs):
+    """Convert retrieved Documents to a single context string."""
+    return "\n\n".join(doc.page_content for doc in docs)
+
 
 # ================================
 # VECTOR STORE (CACHED)
@@ -55,6 +64,9 @@ def load_vector_store():
     )
 
     all_docs = []
+
+    if not os.path.exists(MATERIALS_DIR):
+        raise FileNotFoundError(f"{MATERIALS_DIR} directory not found")
 
     for filename in os.listdir(MATERIALS_DIR):
         filepath = os.path.join(MATERIALS_DIR, filename)
@@ -77,11 +89,10 @@ def load_vector_store():
                 "source": filename,
                 "page": doc.metadata.get("page", "N/A"),
                 "hash": fhash,
-                "chunk": i
+                "chunk": i,
             })
             all_docs.append(doc)
 
-    # ---- FAISS ----
     if os.path.exists(FAISS_INDEX_PATH):
         vector_store = FAISS.load_local(
             FAISS_INDEX_PATH,
@@ -93,6 +104,7 @@ def load_vector_store():
         vector_store.save_local(FAISS_INDEX_PATH)
 
     return vector_store
+
 
 # ================================
 # CHATBOT
@@ -109,7 +121,7 @@ class ChatBot:
         model = AutoModelForCausalLM.from_pretrained(
             LLM_MODEL,
             device_map="auto",
-            torch_dtype="auto"
+            torch_dtype="auto",
         )
 
         text_gen_pipeline = pipeline(
@@ -118,13 +130,14 @@ class ChatBot:
             tokenizer=tokenizer,
             max_new_tokens=256,
             temperature=0.2,
-            do_sample=True
+            do_sample=True,
         )
 
         return HuggingFacePipeline(pipeline=text_gen_pipeline)
 
     def _build_chain(self):
-        template = """
+        prompt = ChatPromptTemplate.from_template(
+            """
 You are an Electrical Standards Assistant.
 
 Rules:
@@ -139,23 +152,28 @@ Context:
 Question:
 {question}
 """
-
-        prompt = PromptTemplate(
-            template=template,
-            input_variables=["context", "question"]
         )
 
-        return RetrievalQA.from_chain_type(
-            llm=self.llm,
-            retriever=self.retriever,
-            chain_type="stuff",
-            chain_type_kwargs={"prompt": prompt},
-            return_source_documents=False
+        rag_chain = (
+            {
+                "context": self.retriever | format_docs,
+                "question": RunnablePassthrough(),
+            }
+            | prompt
+            | self.llm
+            | StrOutputParser()
         )
+
+        return rag_chain
+
+    def ask(self, question: str) -> str:
+        return self.rag_chain.invoke(question)
+
 
 # ================================
 # LOCAL TEST
 # ================================
 if __name__ == "__main__":
     bot = ChatBot()
-    print(bot.rag_chain.invoke("What is the scope of the documents?"))
+    response = bot.ask("What is the scope of the documents?")
+    print(response)
