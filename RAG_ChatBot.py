@@ -4,11 +4,17 @@ import os
 import hashlib
 import streamlit as st
 
-from langchain_ollama import ChatOllama, OllamaEmbeddings
+from langchain_huggingface import (
+    HuggingFaceEmbeddings,
+    HuggingFacePipeline
+)
+
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_core.vectorstores import InMemoryVectorStore
+from langchain_community.vectorstores import FAISS
 from langchain_core.prompts import PromptTemplate
-from langchain_classic.chains.retrieval_qa.base import RetrievalQA
+from langchain.chains import RetrievalQA
+
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 
 from langchain_community.document_loaders import (
     TextLoader,
@@ -19,12 +25,11 @@ from langchain_community.document_loaders import (
 # ================================
 # CONFIG
 # ================================
-OLLAMA_BASE_URL = os.getenv(
-    "OLLAMA_BASE_URL",
-    "http://localhost:11434"  # fallback for local dev
-)
-
 MATERIALS_DIR = "./materials"
+FAISS_INDEX_PATH = "./faiss_index"
+
+EMBEDDING_MODEL = "sentence-transformers/all-mpnet-base-v2"
+LLM_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
 
 # ================================
 # UTILS
@@ -40,9 +45,8 @@ def file_hash(path: str) -> str:
 # ================================
 @st.cache_resource(show_spinner="Indexing documents...")
 def load_vector_store():
-    embeddings = OllamaEmbeddings(
-        model="nomic-embed-text",
-        base_url=OLLAMA_BASE_URL
+    embeddings = HuggingFaceEmbeddings(
+        model_name=EMBEDDING_MODEL
     )
 
     splitter = RecursiveCharacterTextSplitter(
@@ -77,8 +81,16 @@ def load_vector_store():
             })
             all_docs.append(doc)
 
-    vector_store = InMemoryVectorStore(embeddings)
-    vector_store.add_documents(all_docs)
+    # ---- FAISS ----
+    if os.path.exists(FAISS_INDEX_PATH):
+        vector_store = FAISS.load_local(
+            FAISS_INDEX_PATH,
+            embeddings,
+            allow_dangerous_deserialization=True
+        )
+    else:
+        vector_store = FAISS.from_documents(all_docs, embeddings)
+        vector_store.save_local(FAISS_INDEX_PATH)
 
     return vector_store
 
@@ -93,11 +105,23 @@ class ChatBot:
         self.rag_chain = self._build_chain()
 
     def _load_llm(self):
-        return ChatOllama(
-            model="llama3",
-            temperature=0.2,
-            base_url=OLLAMA_BASE_URL
+        tokenizer = AutoTokenizer.from_pretrained(LLM_MODEL)
+        model = AutoModelForCausalLM.from_pretrained(
+            LLM_MODEL,
+            device_map="auto",
+            torch_dtype="auto"
         )
+
+        text_gen_pipeline = pipeline(
+            "text-generation",
+            model=model,
+            tokenizer=tokenizer,
+            max_new_tokens=256,
+            temperature=0.2,
+            do_sample=True
+        )
+
+        return HuggingFacePipeline(pipeline=text_gen_pipeline)
 
     def _build_chain(self):
         template = """
