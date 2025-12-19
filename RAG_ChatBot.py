@@ -12,7 +12,7 @@ from langchain_huggingface import (
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_core.prompts import PromptTemplate
-from langchain.chains import RetrievalQA
+from langchain_classic.chains.retrieval_qa.base import RetrievalQA
 
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 
@@ -29,7 +29,7 @@ MATERIALS_DIR = "./materials"
 FAISS_INDEX_PATH = "./faiss_index"
 
 EMBEDDING_MODEL = "sentence-transformers/all-mpnet-base-v2"
-LLM_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
+LLM_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
 
 # ================================
 # UTILS
@@ -138,8 +138,6 @@ Context:
 
 Question:
 {question}
-
-Answer (max 2 sentences):
 """
 
         prompt = PromptTemplate(
