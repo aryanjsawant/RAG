@@ -1,12 +1,9 @@
 streamlit
-langchain
+langchain-core
 langchain-community
 langchain-huggingface
 langchain-text-splitters
-transformers
-sentence-transformers
-faiss-cpu
-unstructured
+langchain-classic
+langchain-ollama
+unstructured[docx]
 pypdf
-python-docx
-torch
