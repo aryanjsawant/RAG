@@ -1,0 +1,4 @@
+deploy the whole system online somehow
+add more documents
+add a way to manage the folders
+add links if possible

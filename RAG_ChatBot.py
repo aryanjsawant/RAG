@@ -30,8 +30,8 @@ from langchain_core.output_parsers import StrOutputParser
 MATERIALS_DIR = "./materials"
 FAISS_INDEX_PATH = "./faiss_index"
 
-EMBEDDING_MODEL = "sentence-transformers/all-mpnet-base-v2"
-LLM_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
+EMBEDDING_MODEL = "/home/aryan/models/all-mpnet"
+LLM_MODEL = "/home/aryan/models/mistral"
 
 
 # ================================
