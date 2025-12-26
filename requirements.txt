@@ -4,6 +4,7 @@ streamlit
 # LangChain Components
 langchain-core
 langchain-community
+langchain-huggingface
 langchain-text-splitters
 langchain-classic
 langchain-ollama

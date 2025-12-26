@@ -4,27 +4,35 @@ import os
 import hashlib
 import streamlit as st
 
-from langchain_ollama import ChatOllama, OllamaEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_core.vectorstores import InMemoryVectorStore
-from langchain_core.prompts import PromptTemplate
-from langchain_classic.chains.retrieval_qa.base import RetrievalQA
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 
+from langchain_huggingface import (
+    HuggingFaceEmbeddings,
+    HuggingFacePipeline,
+)
+
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
 from langchain_community.document_loaders import (
     TextLoader,
     PyPDFLoader,
-    UnstructuredWordDocumentLoader
+    UnstructuredWordDocumentLoader,
 )
+
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
+
 
 # ================================
 # CONFIG
 # ================================
-OLLAMA_BASE_URL = os.getenv(
-    "OLLAMA_BASE_URL",
-    "http://localhost:11434"  # fallback for local dev
-)
-
 MATERIALS_DIR = "./materials"
+FAISS_INDEX_PATH = "./faiss_index"
+
+EMBEDDING_MODEL = "/home/aryan/models/all-mpnet"
+LLM_MODEL = "/home/aryan/models/mistral"
+
 
 # ================================
 # UTILS
@@ -35,14 +43,19 @@ def file_hash(path: str) -> str:
         h.update(f.read())
     return h.hexdigest()
 
+
+def format_docs(docs):
+    """Convert retrieved Documents to a single context string."""
+    return "\n\n".join(doc.page_content for doc in docs)
+
+
 # ================================
 # VECTOR STORE (CACHED)
 # ================================
 @st.cache_resource(show_spinner="Indexing documents...")
 def load_vector_store():
-    embeddings = OllamaEmbeddings(
-        model="nomic-embed-text",
-        base_url=OLLAMA_BASE_URL
+    embeddings = HuggingFaceEmbeddings(
+        model_name=EMBEDDING_MODEL
     )
 
     splitter = RecursiveCharacterTextSplitter(
@@ -51,6 +64,9 @@ def load_vector_store():
     )
 
     all_docs = []
+
+    if not os.path.exists(MATERIALS_DIR):
+        raise FileNotFoundError(f"{MATERIALS_DIR} directory not found")
 
     for filename in os.listdir(MATERIALS_DIR):
         filepath = os.path.join(MATERIALS_DIR, filename)
@@ -73,14 +89,22 @@ def load_vector_store():
                 "source": filename,
                 "page": doc.metadata.get("page", "N/A"),
                 "hash": fhash,
-                "chunk": i
+                "chunk": i,
             })
             all_docs.append(doc)
 
-    vector_store = InMemoryVectorStore(embeddings)
-    vector_store.add_documents(all_docs)
+    if os.path.exists(FAISS_INDEX_PATH):
+        vector_store = FAISS.load_local(
+            FAISS_INDEX_PATH,
+            embeddings,
+            allow_dangerous_deserialization=True
+        )
+    else:
+        vector_store = FAISS.from_documents(all_docs, embeddings)
+        vector_store.save_local(FAISS_INDEX_PATH)
 
     return vector_store
+
 
 # ================================
 # CHATBOT
@@ -93,14 +117,27 @@ class ChatBot:
         self.rag_chain = self._build_chain()
 
     def _load_llm(self):
-        return ChatOllama(
-            model="llama3",
-            temperature=0.2,
-            base_url=OLLAMA_BASE_URL
+        tokenizer = AutoTokenizer.from_pretrained(LLM_MODEL)
+        model = AutoModelForCausalLM.from_pretrained(
+            LLM_MODEL,
+            device_map="auto",
+            torch_dtype="auto",
         )
 
+        text_gen_pipeline = pipeline(
+            "text-generation",
+            model=model,
+            tokenizer=tokenizer,
+            max_new_tokens=256,
+            temperature=0.2,
+            do_sample=True,
+        )
+
+        return HuggingFacePipeline(pipeline=text_gen_pipeline)
+
     def _build_chain(self):
-        template = """
+        prompt = ChatPromptTemplate.from_template(
+            """
 You are an Electrical Standards Assistant.
 
 Rules:
@@ -114,26 +151,29 @@ Context:
 
 Question:
 {question}
-
-Answer (max 2 sentences):
 """
-
-        prompt = PromptTemplate(
-            template=template,
-            input_variables=["context", "question"]
         )
 
-        return RetrievalQA.from_chain_type(
-            llm=self.llm,
-            retriever=self.retriever,
-            chain_type="stuff",
-            chain_type_kwargs={"prompt": prompt},
-            return_source_documents=False
+        rag_chain = (
+            {
+                "context": self.retriever | format_docs,
+                "question": RunnablePassthrough(),
+            }
+            | prompt
+            | self.llm
+            | StrOutputParser()
         )
+
+        return rag_chain
+
+    def ask(self, question: str) -> str:
+        return self.rag_chain.invoke(question)
+
 
 # ================================
 # LOCAL TEST
 # ================================
 if __name__ == "__main__":
     bot = ChatBot()
-    print(bot.rag_chain.invoke("What is the scope of the documents?"))
+    response = bot.ask("What is the scope of the documents?")
+    print(response)
