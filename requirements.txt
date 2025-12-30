@@ -6,22 +6,13 @@ langchain-core
 langchain-community
 langchain-huggingface
 langchain-text-splitters
-langchain-classic
-langchain-ollama
 
 # Document Loaders & Processing
 unstructured[docx]
 pypdf
-python-docx
-python-magic-bin
 
 # NLP & ML Libraries
-accelerate
 transformers
-torch
-sentence-transformers
+accelerate
 
 # Additional Dependencies
-requests
-typing-extensions
-pydantic
